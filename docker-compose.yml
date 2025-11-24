@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  rabbitmq:
+    image: rabbitmq:3.8-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672" # RabbitMQ main port
+      - "15672:15672" # RabbitMQ management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: user
+      RABBITMQ_DEFAULT_PASS: password
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - rabbitmq_net
+
+  orders-service:
+    build: ./orders-service
+    container_name: orders-service
+    ports:
+      - "3001:3001"
+    environment:
+      RABBITMQ_URL: amqp://user:password@rabbitmq:5672/
+    depends_on:
+      - rabbitmq
+    networks:
+      - rabbitmq_net
+
+  email-worker:
+    build: ./email-worker
+    container_name: email-worker
+    environment:
+      RABBITMQ_URL: amqp://user:password@rabbitmq:5672/
+    depends_on:
+      - rabbitmq
+    networks:
+      - rabbitmq_net
+
+  frontend:
+    build: ./frontend
+    container_name: frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - orders-service
+
+volumes:
+  rabbitmq_data:
+
+networks:
+  rabbitmq_net:
+    driver: bridge
