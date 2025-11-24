@@ -33,5 +33,5 @@ async function publish(channel, exchange, routingKey, message) {
         console.error('Erro ao publicar mensagem:', err);
     }
 }
-
+// Exports
 module.exports = { connect, publish, EXCHANGE };
