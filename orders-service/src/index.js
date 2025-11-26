@@ -11,27 +11,38 @@ const PORT = process.env.PORT || 3001;
 const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://rabbitmq:5672';
 
 let channelRef;
-(async () => {
-    try {
-        const { channel, conn, EXCHANGE } = await connect(RABBITMQ_URL);
-        channelRef = channel;
-        console.log('Conectado ao RabbitMQ');
-    } catch (error) {
-        console.error('Erro ao conectar ao RabbitMQ:', error);
-        process.exit(1);
+const connectWithRetry = async (retries = 10, delay = 5000) => {
+    for (let i = 0; i < retries; i++) {
+        try {
+            const { channel, conn, EXCHANGE } = await connect(RABBITMQ_URL);
+            channelRef = channel;
+            console.log('Conectado ao RabbitMQ');
+            return;
+        } catch (error) {
+            console.error(`Tentativa ${i + 1} falhou ao conectar ao RabbitMQ:`, error.message);
+            if (i < retries - 1) {
+                console.log(`Tentando novamente em ${delay / 1000} segundos...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+        }
     }
-})();
+    console.error('Falhou ao conectar ao RabbitMQ após todas as tentativas');
+    process.exit(1);
+};
+
+connectWithRetry();
 
 app.post('/orders', async (req, res) => {
-    const { item, quantity } = req.body;
-    if (!item || !quantity) {
-        return res.status(400).json({ error: 'Item e quantidade são obrigatórios' });
+    const { item, quantity, customerEmail } = req.body;
+    if (!item || !quantity || !customerEmail) {
+        return res.status(400).json({ error: 'Item, quantidade e customerEmail são obrigatórios' });
     }
-    
+
     const order = {
         id: uuidv4(),
         customerEmail,
         item,
+        quantity,
         createdAt: new Date().toISOString()
     };
 
